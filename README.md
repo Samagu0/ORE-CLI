@@ -1,0 +1,2 @@
+# ORE-CLI
+minning
