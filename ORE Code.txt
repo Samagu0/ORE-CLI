@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# Install Rust (required for compiling and running certain tools)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install Solana CLI
+sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+export PATH="/root/.local/share/solana/install/active_release/bin:$PATH"
+
+# Generate or recover Solana wallet
+echo "Which wallet do you want to use?"
+echo "1. New Wallet"
+echo "2. Existing Wallet/Recover"
+read -p "Enter your choice (1 or 2): " wallet
+
+if [ "$wallet" == "1" ]; then
+    echo "Generating a new Solana wallet..."
+    solana-keygen new
+elif [ "$wallet" == "2" ]; then
+    echo "Recovering an existing Solana wallet..."
+    solana-keygen recover
+else
+    echo "Invalid choice. Please enter 1 for New Wallet or 2 for Existing Wallet."
+    exit 1
+fi
+
+# Display Solana wallet public key
+echo "Your Solana wallet address (public key):"
+pubkey=$(solana-keygen pubkey)
+echo "$pubkey"
+echo "Please deposit at least 0.05 SOL to this address."
+
+# Wait for user confirmation after deposit
+read -p "Once you have deposited the SOL, press 'y' and then ENTER to continue: " confirm_deposit
+if [ "$confirm_deposit" != "y" ]; then
+    echo "Please deposit at least 0.101 SOL to the address and then run the script again."
+    exit 1
+fi
+
+# Set Solana network configuration
+solana config set --url https://api.mainnet-beta.solana.com
+
+# Update system and install necessary packages
+sudo apt update && sudo apt upgrade -y
+sudo apt-get install -y build-essential gcc cargo
+
+# Install ORE mining CLI tool
+cargo install ore-cli
+
+# Prompt for fee and threads settings
+read -p "Please enter the fee (default is 1000): " fee
+fee=${fee:-1000}
+
+read -p "Please enter the number of threads (default is 4): " threads
+threads=${threads:-4}
+
+# Create the ore.sh script to run the mining process in a loop
+cat <<EOF > ore.sh
+#!/bin/bash
+
+while true 
+do 
+  echo "Running" 
+  ore mine --priority-fee $fee --threads $threads
+  echo "Exited" 
+done 
+EOF
+
+# Make the ore.sh script executable
+chmod +x ore.sh
+
+# Start the mining process
+./ore.sh
+
+echo "Mining process started. Check ore.sh for details."
